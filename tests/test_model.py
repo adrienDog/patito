@@ -22,7 +22,7 @@ from polars.datatypes.group import (
     INTEGER_DTYPES,
     DataTypeGroup,
 )
-from pydantic import AliasChoices, AwareDatetime, ValidationError
+from pydantic import AwareDatetime, ValidationError
 
 from tests.examples import CompleteModel, ManyTypes, SmallModel
 
@@ -533,17 +533,81 @@ def test_missing_date_struct():
     Test.validate(df.cast())
 
 
-def test_validation_alias():
-    """Test that validation alias works in pt.Field.
-
-    TODO: Not sure if this actually tests anything correctly.
-    """
+def test_validation_alias_generator():
+    """Test that validation alias generator works in pt.Field."""
 
     class AliasModel(pt.Model):
-        my_val_a: int = pt.Field(validation_alias="myValA")
-        my_val_b: int = pt.Field(validation_alias=AliasChoices("my_val_b", "myValB"))
+        my_val_a: int
+        my_val_b: int
+
+        model_config = {
+            "alias_generator": lambda x: x.replace(".", "_"),
+        }
 
     # code from validators _find_errors showing that we need model_json_schema without aliases
     for column_name, _column_properties in AliasModel._schema_properties().items():
         assert AliasModel.column_infos[column_name] is not None
     AliasModel.examples()
+
+    df = pl.DataFrame(
+        {
+            "my_val_a": [1, 2, 3],
+            "my_val_b": [1, 2, 3],
+        }
+    )
+    AliasModel.validate(df)
+
+    df_with_aliases = pl.DataFrame(
+        {
+            "my.val.a": [1, 2, 3],
+            "my.val.b": [1, 2, 3],
+        }
+    )
+    AliasModel.validate(df_with_aliases)
+
+
+def test_validation_alias():
+    """Test that validation alias works in pt.Field.
+
+        TODO: Not sure if this actually tests anything correctly.
+
+        Actually it fails now with better assertions:
+        '''
+    >           raise DataFrameValidationError(errors=errors, model=schema)
+    E           patito.exceptions.DataFrameValidationError: 4 validation errors for AliasModel
+    E           my_val_a
+    E             Missing column (type=type_error.missingcolumns)
+    E           my_val_b
+    E             Missing column (type=type_error.missingcolumns)
+    E           myValA
+    E             Superfluous column (type=type_error.superfluouscolumns)
+    E           myValB
+    E             Superfluous column (type=type_error.superfluouscolumns)
+        '''
+    """
+
+    class AliasModel(pt.Model):
+        my_val_a: int = pt.Field(validation_alias="myValA")
+        my_val_b: int = pt.Field(validation_alias="myValB")
+
+    # code from validators _find_errors showing that we need model_json_schema without aliases
+    for column_name, _column_properties in AliasModel._schema_properties().items():
+        assert AliasModel.column_infos[column_name] is not None
+    AliasModel.examples()
+
+    df = pl.DataFrame(
+        {
+            "my_val_a": [1, 2, 3],
+            "my_val_b": [1, 2, 3],
+        }
+    )
+    AliasModel.validate(df)
+
+    # with aliases
+    df_with_aliases = pl.DataFrame(
+        {
+            "myValA": [1, 2, 3],
+            "myValB": [1, 2, 3],
+        }
+    )
+    AliasModel.validate(df_with_aliases)

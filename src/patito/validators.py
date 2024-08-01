@@ -106,6 +106,22 @@ def _transform_df(dataframe: pl.DataFrame, schema: type[Model]) -> pl.DataFrame:
         dataframe.columns = new_cols
     return dataframe
 
+    ## Create a mapping of original column names to their aliases
+    # column_aliases = {}
+    # for field_name, field in schema.model_fields.items():
+    #     if hasattr(field, 'alias') and field.alias:
+    #         column_aliases[field_name] = field.alias
+    #     elif alias_func:
+    #         column_aliases[field_name] = alias_func(field_name)
+    #     else:
+    #         column_aliases[field_name] = field_name
+
+    # # Rename the columns in the dataframe
+    # new_cols = [column_aliases.get(col, col) for col in dataframe.columns]
+    # dataframe.columns = new_cols
+
+    # return dataframe
+
 
 def _find_errors(  # noqa: C901
     dataframe: pl.DataFrame,
